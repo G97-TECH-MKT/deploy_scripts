@@ -16,6 +16,8 @@ def create_ssh_tunnel(ssh_key, bastion_user, bastion_host, local_port, remote_ho
     ssh_command = [
         "ssh", "-i", ssh_key, "-N", "-L",
         f"{local_port}:{remote_host}:{remote_port}",
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
         f"{bastion_user}@{bastion_host}"
     ]
     return subprocess.Popen(ssh_command)
@@ -57,7 +59,7 @@ if __name__ == "__main__":
     db_password_secret = get_secret_value(db_password_secret_arn)
 
     # Write SSH key in a temp file
-    ssh_key_path = "/tmp/keys.pem"
+    ssh_key_path = "/tmp/key.pem"
     with open(ssh_key_path, "w") as file:
         file.write(ssh_key_secret)  # Write string directly to file
     subprocess.run(["chmod", "600", ssh_key_path])
@@ -66,6 +68,7 @@ if __name__ == "__main__":
     tunnel = create_ssh_tunnel(ssh_key_path, bastion_user, bastion_host, local_port, remote_host, remote_port)
 
     time.sleep(5) # This time is mandatory to wait for the SSH tunnel to be established
+
 
     try:
         # Create database through SSH Tunel
