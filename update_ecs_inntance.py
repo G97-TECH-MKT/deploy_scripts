@@ -41,11 +41,6 @@ def deploy(cluster, service, image, username_secret_arn, password_secret_arn, en
     # Register a new task definition
     print("Registering new task definition...")
 
-    args = ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "3"]
-
-
-    container_definition["command"] = args
-
     response = client.register_task_definition(
         family=response["taskDefinition"]["family"],
         volumes=response["taskDefinition"]["volumes"],
