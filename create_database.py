@@ -34,7 +34,7 @@ def create_database(host, port, username, password, db_name):
             if cur.fetchone() is not None:
                 print(f"La base de datos '{db_name}' ya existe.")
             else:
-                cur.execute(f"CREATE DATABASE {db_name};")
+                cur.execute(f"CREATE DATABASE {db_name} ENCODING 'UTF8';")
                 print(f"Base de datos '{db_name}' creada con éxito.")
     except Exception as e:
         print(f"Error al crear la base de datos '{db_name}': {e}")
