@@ -55,8 +55,8 @@ def deploy(cluster, service, image, username_secret_arn, password_secret_arn, ta
         family=response["taskDefinition"]["family"],
         volumes=response["taskDefinition"]["volumes"],
         containerDefinitions=[container_definition],
-        cpu="256",  # Modify based on your needs
-        memory="512",  # Modify based on your needs
+        cpu=response["taskDefinition"]["cpu"],
+        memory=response["taskDefinition"]["memory"],
         networkMode="awsvpc",
         requiresCompatibilities=["FARGATE"],
         executionRoleArn=task_execution_role,
