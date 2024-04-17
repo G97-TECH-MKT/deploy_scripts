@@ -1,10 +1,11 @@
 import boto3
 import sys
+import os
 
 def get_parameters(param_names):
+    """Fetch parameters from AWS SSM in chunks of 10 (API limit)."""
     ssm = boto3.client('ssm')
     parameters = []
-    # Dividir la lista de nombres de parámetros en subconjuntos de hasta 10 elementos
     for i in range(0, len(param_names), 10):
         chunk = param_names[i:i + 10]
         response = ssm.get_parameters(Names=chunk, WithDecryption=True)
@@ -12,6 +13,7 @@ def get_parameters(param_names):
     return {param['Name']: param['Value'] for param in parameters}
 
 def parse_parameter_input(input_param):
+    """Parse input parameters expected in 'key:value' format."""
     parts = input_param.split(":")
     if len(parts) != 2:
         raise ValueError("El parámetro debe tener el formato 'tipo_variable:nombre_parametro'")
@@ -33,9 +35,11 @@ if __name__ == "__main__":
 
         params = get_parameters(param_names)
 
-        for param_name, param_value in params.items():
-            env_var = env_vars[param_name]
-            print(f"::set-output name={env_var.upper()}::{param_value}")
+        # Escribir en el archivo de entorno de GitHub Actions
+        with open(os.getenv('GITHUB_ENV'), 'a') as f:
+            for param_name, param_value in params.items():
+                env_var = env_vars[param_name]
+                f.write(f"{env_var.upper()}={param_value}\n")
     except Exception as e:
         print(f"Error al obtener los parámetros: {e}")
         sys.exit(1)
