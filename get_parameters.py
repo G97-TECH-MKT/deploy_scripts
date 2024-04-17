@@ -1,10 +1,10 @@
 import boto3
 import sys
-import os
 
 def get_parameters(param_names):
     ssm = boto3.client('ssm')
     parameters = []
+    # Dividir la lista de nombres de parámetros en subconjuntos de hasta 10 elementos
     for i in range(0, len(param_names), 10):
         chunk = param_names[i:i + 10]
         response = ssm.get_parameters(Names=chunk, WithDecryption=True)
@@ -33,11 +33,9 @@ if __name__ == "__main__":
 
         params = get_parameters(param_names)
 
-        # Usar el archivo de entorno GITHUB_ENV
-        with open(os.getenv('GITHUB_ENV'), 'a') as f:
-            for param_name, param_value in params.items():
-                env_var = env_vars[param_name]
-                f.write(f"{env_var.upper()}={param_value}\n")
+        for param_name, param_value in params.items():
+            env_var = env_vars[param_name]
+            print(f"::set-output name={env_var.upper()}::{param_value}")
     except Exception as e:
         print(f"Error al obtener los parámetros: {e}")
         sys.exit(1)
