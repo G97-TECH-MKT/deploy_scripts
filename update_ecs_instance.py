@@ -8,8 +8,9 @@ def get_current_task_definition(client, cluster, service):
     current_task_arn = response["services"][0]["taskDefinition"]
 
     print("≠ current_task_arn ≠")
-    print(current_task_arn)
-    return client.describe_task_definition(taskDefinition=current_task_arn)
+    print(current_task_arn.rsplit(':', 1)[0])
+
+    return client.describe_task_definition(taskDefinition=f"{current_task_arn.rsplit(':', 1)[0]}")
 
 
 PROD_TASK_ROLE = "production_ecs_task_execution_role"
@@ -20,11 +21,8 @@ DEV_TASK_ROLE = "dev_ecs_task_execution_role"
 @click.option("--cluster", help="Name of the ECS cluster", required=True)
 @click.option("--service", help="Name of the ECS service", required=True)
 @click.option("--image", help="Docker image URL for the updated application", required=True)
-@click.option("--username-secret-arn", help="Username ARN for the database credentials secret", required=True)
-@click.option("--password-secret-arn", help="Password ARN for the database credentials secret", required=True)
-@click.option("--target-env", help="JSON string of environment variables", required=False)
-@click.option("--env-vars", help="JSON string of environment variables", required=True)
-def deploy(cluster, service, image, username_secret_arn, password_secret_arn, target_env, env_vars):
+@click.option("--target-env", help="the target environment to update the task instance", required=False)
+def deploy(cluster, service, image, target_env):
     client = boto3.client("ecs")
 
     # Fetch the current task definition
@@ -32,17 +30,11 @@ def deploy(cluster, service, image, username_secret_arn, password_secret_arn, ta
     response = get_current_task_definition(client, cluster, service)
     container_definition = response["taskDefinition"]["containerDefinitions"][0].copy(
     )
+    print(response)
+    print(response["taskDefinition"]["containerDefinitions"])
 
     # Update the container definition with the new image
     container_definition["image"] = image
-
-    # Update the container definition with new environment variables
-    new_env_vars = json.loads(env_vars)
-    container_definition["environment"] = new_env_vars
-    container_definition["secrets"] = [
-        {"name": "DB_USERNAME", "valueFrom": username_secret_arn},
-        {"name": "DB_PASSWORD", "valueFrom": password_secret_arn}
-    ]
 
     print(f"Updated image to: {image}")
 
