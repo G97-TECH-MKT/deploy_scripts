@@ -35,6 +35,9 @@ def toggle_service(cluster, service, turn_on, shutdown_all_cluster_tasks):
             print("All services were toggled!")
             return
         else:
+            if (service is None):
+                print("Error: You must specify a service to toggle!")
+                return
             toggle_single_service(client, cluster, service, turn_on)
 
     except Exception as e:
