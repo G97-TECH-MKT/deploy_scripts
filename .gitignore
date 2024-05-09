@@ -9,7 +9,6 @@
 
 # KDE directory preferences
 .directory
-.idea
 
 # Linux trash folder which might appear on any partition or disk
 .Trash-*
@@ -247,5 +246,8 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+
+.idea/*
 
 # End of https://www.toptal.com/developers/gitignore/api/python,macos,linux,windows
