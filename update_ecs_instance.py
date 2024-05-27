@@ -21,8 +21,9 @@ DEV_TASK_ROLE = "dev_ecs_task_execution_role"
 @click.option("--cluster", help="Name of the ECS cluster", required=True)
 @click.option("--service", help="Name of the ECS service", required=True)
 @click.option("--image", help="Docker image URL for the updated application", required=True)
+@click.option("--region", help="AWS region where the ECS tasks are located", required=False, default="us-east-1")
 @click.option("--target-env", help="the target environment to update the task instance", required=False)
-def deploy(cluster, service, image, target_env):
+def deploy(cluster, service, image, region, target_env):
     client = boto3.client("ecs")
 
     # Fetch the current task definition
@@ -42,6 +43,11 @@ def deploy(cluster, service, image, target_env):
     print("Registering new task definition...")
 
     task_execution_role = PROD_TASK_ROLE if target_env == "production" else DEV_TASK_ROLE
+
+    if (region == "eu-west-2"):
+        task_execution_role = f"{region}_{task_execution_role}"
+
+    print("ECS TASK ROLE", task_execution_role)
 
     response = client.register_task_definition(
         family=response["taskDefinition"]["family"],
