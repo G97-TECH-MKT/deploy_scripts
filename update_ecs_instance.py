@@ -102,6 +102,18 @@ def deploy(cluster, service, image, username_secret_arn, password_secret_arn, ta
         register_params["networkMode"] = task_def["networkMode"]
     else:
         register_params["networkMode"] = "awsvpc"
+    if "runtimePlatform" in task_def:
+        register_params["runtimePlatform"] = task_def["runtimePlatform"]
+    if "placementConstraints" in task_def:
+        register_params["placementConstraints"] = task_def["placementConstraints"]
+    if "ipcMode" in task_def:
+        register_params["ipcMode"] = task_def["ipcMode"]
+    if "pidMode" in task_def:
+        register_params["pidMode"] = task_def["pidMode"]
+    if "proxyConfiguration" in task_def:
+        register_params["proxyConfiguration"] = task_def["proxyConfiguration"]
+    if "ephemeralStorage" in task_def:
+        register_params["ephemeralStorage"] = task_def["ephemeralStorage"]
 
     response = client.register_task_definition(**register_params)
     new_task_arn = response["taskDefinition"]["taskDefinitionArn"]
