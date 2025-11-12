@@ -22,46 +22,88 @@ DEV_TASK_ROLE = "dev_ecs_task_execution_role"
 @click.option("--image", help="Docker image URL for the updated application", required=True)
 @click.option("--username-secret-arn", help="Username ARN for the database credentials secret", required=True)
 @click.option("--password-secret-arn", help="Password ARN for the database credentials secret", required=True)
-@click.option("--target-env", help="JSON string of environment variables", required=False)
+@click.option("--target-env", help="Target environment (production or dev)", required=False)
 @click.option("--env-vars", help="JSON string of environment variables", required=True)
-def deploy(cluster, service, image, username_secret_arn, password_secret_arn, target_env, env_vars):
+@click.option("--container-names", help="Comma-separated list of container names to update (optional, updates all if not provided)", required=False)
+def deploy(cluster, service, image, username_secret_arn, password_secret_arn, target_env, env_vars, container_names):
     client = boto3.client("ecs")
 
     # Fetch the current task definition
     print("Fetching current task definition...")
     response = get_current_task_definition(client, cluster, service)
-    container_definition = response["taskDefinition"]["containerDefinitions"][0].copy(
-    )
+    task_def = response["taskDefinition"]
 
-    # Update the container definition with the new image
-    container_definition["image"] = image
+    # Parse container names if provided
+    containers_to_update = []
+    if container_names:
+        containers_to_update = [name.strip() for name in container_names.split(",")]
+        print(f"Containers to update: {containers_to_update}")
+    else:
+        print("No specific containers specified, will update all containers")
 
-    # Update the container definition with new environment variables
+    updated_container_definitions = []
     new_env_vars = json.loads(env_vars)
-    container_definition["environment"] = new_env_vars
-    container_definition["secrets"] = [
-        {"name": "DB_USERNAME", "valueFrom": username_secret_arn},
-        {"name": "DB_PASSWORD", "valueFrom": password_secret_arn}
-    ]
 
-    print(f"Updated image to: {image}")
+    for container_def in task_def["containerDefinitions"]:
+        container_name = container_def.get("name", "")
+        updated_container = container_def.copy()
 
-    # Register a new task definition
+        should_update = not containers_to_update or container_name in containers_to_update
+
+        if should_update:
+            updated_container["image"] = image
+            print(f"Updating container '{container_name}' with image: {image}")
+
+            existing_env = {item["name"]: item["value"] for item in updated_container.get("environment", [])}
+            new_env_dict = {item["name"]: item["value"] for item in new_env_vars}
+            existing_env.update(new_env_dict)
+            updated_container["environment"] = [{"name": k, "value": v} for k, v in existing_env.items()]
+
+            existing_secrets = {}
+            for secret in updated_container.get("secrets", []):
+                secret_name = secret.get("name")
+                secret_value = secret.get("valueFrom") or secret.get("value")
+                existing_secrets[secret_name] = secret_value
+
+            existing_secrets["DB_USERNAME"] = username_secret_arn
+            existing_secrets["DB_PASSWORD"] = password_secret_arn
+
+            updated_container["secrets"] = [
+                {"name": k, "valueFrom": v} for k, v in existing_secrets.items()
+            ]
+        else:
+            print(f"Keeping container '{container_name}' unchanged (not in update list)")
+
+        updated_container_definitions.append(updated_container)
+
+    print(f"Total containers in task definition: {len(updated_container_definitions)}")
+    for container in updated_container_definitions:
+        print(f"  - {container.get('name')}: {container.get('image')}")
+
     print("Registering new task definition...")
 
     task_execution_role = PROD_TASK_ROLE if target_env == "production" else DEV_TASK_ROLE
 
-    response = client.register_task_definition(
-        family=response["taskDefinition"]["family"],
-        volumes=response["taskDefinition"]["volumes"],
-        containerDefinitions=[container_definition],
-        cpu=response["taskDefinition"]["cpu"],
-        memory=response["taskDefinition"]["memory"],
-        networkMode="awsvpc",
-        requiresCompatibilities=["FARGATE"],
-        executionRoleArn=task_execution_role,
-        taskRoleArn=task_execution_role,
-    )
+    register_params = {
+        "family": task_def["family"],
+        "containerDefinitions": updated_container_definitions,
+        "requiresCompatibilities": task_def.get("requiresCompatibilities", ["FARGATE"]),
+        "executionRoleArn": task_execution_role,
+        "taskRoleArn": task_execution_role,
+    }
+
+    if "volumes" in task_def:
+        register_params["volumes"] = task_def["volumes"]
+    if "cpu" in task_def:
+        register_params["cpu"] = task_def["cpu"]
+    if "memory" in task_def:
+        register_params["memory"] = task_def["memory"]
+    if "networkMode" in task_def:
+        register_params["networkMode"] = task_def["networkMode"]
+    else:
+        register_params["networkMode"] = "awsvpc"
+
+    response = client.register_task_definition(**register_params)
     new_task_arn = response["taskDefinition"]["taskDefinitionArn"]
     print(f"New task definition ARN: {new_task_arn}")
 
