@@ -25,7 +25,7 @@ DEV_TASK_ROLE = "dev_ecs_task_execution_role"
 @click.option("--target-env", help="Target environment (production or dev)", required=False)
 @click.option("--env-vars", help="JSON string of environment variables", required=True)
 @click.option("--container-names", help="Comma-separated list of container names to update (optional, updates all if not provided)", required=False)
-@click.option("--additional-secrets", help="JSON string of additional secrets in format {\"SECRET_NAME\": \"arn:aws:secretsmanager:...\"}", required=False)
+@click.option("--additional-secrets", help="JSON string of additional secrets in format [{\"name\": \"SECRET_NAME\", \"valueFrom\": \"arn:aws:secretsmanager:...\"}]", required=False)
 def deploy(cluster, service, image, username_secret_arn, password_secret_arn, target_env, env_vars, container_names, additional_secrets):
     client = boto3.client("ecs")
 
@@ -71,9 +71,13 @@ def deploy(cluster, service, image, username_secret_arn, password_secret_arn, ta
 
             # Add additional secrets if provided
             if additional_secrets:
-                additional_secrets_dict = json.loads(additional_secrets)
-                existing_secrets.update(additional_secrets_dict)
-                print(f"Added {len(additional_secrets_dict)} additional secret(s)")
+                additional_secrets_list = json.loads(additional_secrets)
+                for secret_item in additional_secrets_list:
+                    secret_name = secret_item.get("name")
+                    secret_value = secret_item.get("valueFrom") or secret_item.get("value")
+                    if secret_name and secret_value:
+                        existing_secrets[secret_name] = secret_value
+                print(f"Added {len(additional_secrets_list)} additional secret(s)")
 
             updated_container["secrets"] = [
                 {"name": k, "valueFrom": v} for k, v in existing_secrets.items()
